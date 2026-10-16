@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Animation Wall</title>
+<style>
+  /* ---------- 1. LOOK & FEEL ---------- */
+  :root {
+    --bg: #14102b;
+    --text: #fff7e6;
+    --muted: #b9b0d6;
+    --accent: #ffd23f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(circle at 20% 0%, #2b1f5c 0%, var(--bg) 55%);
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: "Trebuchet MS", "Avenir Next", sans-serif;
+    min-height: 100vh;
+    padding: 32px 16px 64px;
+  }
+  header { text-align: center; margin-bottom: 28px; }
+  h1 {
+    font-family: Impact, "Arial Black", sans-serif;
+    font-size: clamp(2.4rem, 7vw, 4.5rem);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, #ff6b9d, #ffd23f, #4cd7d0, #8b7bff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .subtitle { color: var(--muted); margin-top: 6px; }
+
+  /* ---------- 2. CONTROLS ---------- */
+  .controls {
+    max-width: 1100px;
+    margin: 0 auto 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+  }
+  .controls input[type=search], .controls select {
+    background: #241b4d;
+    border: 2px solid #3b2f78;
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-size: 1rem;
+  }
+  .controls input[type=search] { width: 220px; }
+  .btn {
+    background: var(--accent);
+    color: #2a1d00;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+  .btn:hover { transform: scale(1.05); }
+  .chips {
+    max-width: 1100px;
+    margin: 0 auto 28px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  .chip {
+    background: #241b4d;
+    border: 2px solid #3b2f78;
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .chip.on { background: #ff6b9d; border-color: #ff6b9d; color: #2a0014; font-weight: bold; }
+  .count { text-align: center; color: var(--muted); margin-bottom: 20px; }
+
+  /* ---------- 3. THE POSTER WALL ---------- */
+  .wall {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+    gap: 18px;
+  }
+  .poster {
+    aspect-ratio: 2 / 3;
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0,0,0,.45);
+    transition: transform .25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow .25s ease;
+    cursor: pointer;
+    background-color: #241b4d;
+  }
+  .poster:hover {
+    transform: translateY(-6px) scale(1.03);
+    box-shadow: 0 16px 32px rgba(0,0,0,.65);
+    z-index: 2;
+  }
+  .poster::before {            /* decorative glowing circle fallback */
+    content: "";
+    position: absolute;
+    width: 140%; aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--glow);
+    opacity: .35;
+    top: var(--gy); left: var(--gx);
+    z-index: 0;
+  }
+  .poster-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    z-index: 1;
+    transition: transform .35s ease;
+    pointer-events: none;
+  }
+  .poster:hover .poster-bg {
+    transform: scale(1.08);
+  }
+  .poster-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(15, 12, 35, 0.5) 0%,
+      rgba(15, 12, 35, 0.08) 35%,
+      rgba(15, 12, 35, 0.55) 70%,
+      rgba(15, 12, 35, 0.95) 100%
+    );
+    z-index: 2;
+    pointer-events: none;
+  }
+  .rating {
+    align-self: flex-end;
+    background: rgba(18, 14, 38, 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: bold;
+    font-size: .92rem;
+    position: relative;
+    z-index: 3;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .poster-info {
+    position: relative;
+    z-index: 3;
+  }
+  .title {
+    font-family: Impact, "Arial Black", sans-serif;
+    text-transform: uppercase;
+    font-size: 1.3rem;
+    line-height: 1.08;
+    text-shadow: 0 2px 8px rgba(0,0,0,.9), 0 1px 3px rgba(0,0,0,1);
+    position: relative;
+    word-break: break-word;
+  }
+  .meta {
+    font-size: .74rem;
+    opacity: .95;
+    margin-top: 5px;
+    position: relative;
+    text-shadow: 0 1px 4px rgba(0,0,0,.9);
+    letter-spacing: 0.2px;
+  }
+  .tags-hover {
+    position: absolute; inset: 0;
+    background: rgba(20,16,43,.94);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    padding: 14px;
+    display: flex; flex-wrap: wrap; align-content: center; gap: 6px; justify-content: center;
+    opacity: 0; transition: opacity .2s ease;
+    font-size: .78rem;
+    z-index: 4;
+  }
+  .poster:hover .tags-hover { opacity: 1; }
+  .tags-hover span { background: #3b2f78; padding: 4px 10px; border-radius: 999px; }
+  .tags-hover b { width: 100%; text-align: center; font-size: .95rem; margin-bottom: 6px; }
+
+  /* ---------- 4. "PICK ONE FOR ME" POPUP ---------- */
+  #pickBox {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: none; align-items: center; justify-content: center; z-index: 10;
+  }
+  #pickBox.show { display: flex; }
+  #pickCard { width: min(280px, 80vw); text-align: center; }
+  #pickCard .poster { aspect-ratio: 2/3; width: 100%; }
+  #pickCard p { margin: 14px 0; color: var(--muted); }
+
+  /* ---------- 4b. CLICK-A-POSTER DETAIL POP-UP ---------- */
+  #detail {
+    position: fixed; inset: 0; z-index: 20;
+    background: rgba(8, 6, 20, .82);
+    backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #detail.show { display: flex; }
+  .detail-card {
+    background: #1d1640;
+    border: 2px solid #3b2f78;
+    border-radius: 20px;
+    width: min(900px, 100%);
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    position: relative;
+    box-shadow: 0 24px 60px rgba(0,0,0,.7);
+  }
+  .detail-poster {
+    width: 260px; flex-shrink: 0;
+    background-size: cover; background-position: center;
+    position: relative;
+  }
+  .detail-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .detail-body { padding: 26px 28px; overflow-y: auto; flex: 1; }
+  .detail-body > h2 {
+    font-family: Impact, "Arial Black", sans-serif;
+    text-transform: uppercase;
+    font-size: clamp(1.6rem, 4vw, 2.3rem);
+    line-height: 1.05;
+    margin-bottom: 6px;
+  }
+  .detail-meta { color: var(--muted); font-size: .9rem; margin-bottom: 16px; }
+  .score-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+  .score-box {
+    background: #2d2360; border-radius: 14px; padding: 10px 16px; min-width: 120px;
+  }
+  .score-box big { display: block; font-family: Impact, sans-serif; font-size: 1.7rem; color: var(--accent); }
+  .score-box small { color: var(--muted); font-size: .78rem; }
+  .detail-links { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+  .detail-links a {
+    background: var(--accent); color: #2a1d00; text-decoration: none; font-weight: bold;
+    padding: 8px 16px; border-radius: 999px; font-size: .9rem;
+  }
+  .detail-links a.alt { background: #3b2f78; color: var(--text); }
+  .detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+  .detail-tags span { background: #3b2f78; padding: 3px 10px; border-radius: 999px; font-size: .78rem; }
+  .detail-body > h3 { color: var(--accent); margin-bottom: 8px; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; }
+  .notes { line-height: 1.6; font-size: .95rem; }
+  .notes.empty { color: var(--muted); font-style: italic; }
+
+  /* --- Notion-style formatting for the notes --- */
+  .nb > * + * { margin-top: 6px; }
+  .nb h1, .nb h2, .nb h3, .nb h4 { font-family: "Trebuchet MS", sans-serif; line-height: 1.25; margin-top: 18px; margin-bottom: 4px; }
+  .nb h1, .nb h2, .nb h3, .nb h4 {         /* undo the big rainbow page-title style so notes look like Notion */
+    text-transform: none; letter-spacing: normal; font-weight: 700;
+    background: none; -webkit-background-clip: initial; background-clip: initial; color: var(--text);
+  }
+  .nb h1 { font-size: 1.6rem; } .nb h2 { font-size: 1.3rem; } .nb h3 { font-size: 1.1rem; } .nb h4 { font-size: 1rem; }
+  .nb ul, .nb ol { padding-left: 1.4em; }
+  .nb li { margin: 2px 0; }
+  .nb ul.todo { list-style: none; padding-left: .2em; }
+  .nb ul.todo input { margin-right: 8px; accent-color: var(--accent); }
+  .nb .empty-line { height: .8em; }
+  .nb hr { border: none; border-top: 1px solid #3b2f78; margin: 14px 0; }
+  .nb code { background: #2d2360; color: #ff8fb8; padding: 1px 6px; border-radius: 5px; font-size: .88em; }
+  .nb pre { background: #120d2b; border: 1px solid #3b2f78; border-radius: 10px; padding: 12px; overflow-x: auto; }
+  .nb pre code { background: none; color: var(--text); padding: 0; }
+  .nb blockquote { border-left: 3px solid var(--accent); padding-left: 14px; margin: 8px 0; }
+  .nb a { color: #74c0fc; }
+  .nb img { max-width: 100%; border-radius: 10px; display: block; }
+  .nb figure { margin: 8px 0; }
+  .nb figcaption { color: var(--muted); font-size: .8rem; margin-top: 4px; }
+  .nb .cols { display: flex; gap: 14px; flex-wrap: wrap; }
+  .nb .col { min-width: 0; }
+  .nb .col > * + * { margin-top: 6px; }
+  .nb .callout { display: flex; gap: 10px; background: #2d2360; border-radius: 10px; padding: 12px 14px; }
+  .nb .callout-icon { font-size: 1.2rem; line-height: 1.4; }
+  .nb .callout-body { flex: 1; min-width: 0; }
+  .nb details { margin: 4px 0; }
+  .nb summary { cursor: pointer; font-weight: bold; }
+  .nb .children { padding-left: 1.2em; margin-top: 4px; }
+  .nb table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  .nb td, .nb th { border: 1px solid #3b2f78; padding: 6px 10px; text-align: left; }
+  .nb th { background: #2d2360; }
+  .nb .mention { background: #2d2360; border-radius: 4px; padding: 0 5px; }
+  .detail-close {
+    position: absolute; top: 10px; right: 12px; z-index: 2;
+    background: rgba(0,0,0,.5); color: var(--text); border: none;
+    width: 34px; height: 34px; border-radius: 50%; font-size: 1.2rem; cursor: pointer;
+  }
+  @media (max-width: 640px) {
+    .detail-card { flex-direction: column; }
+    .detail-poster { width: 100%; height: 200px; }
+  }
+
+  /* ---------- 5. TASTE PROFILE CHARTS ---------- */
+  #profile { max-width: 1100px; margin: 72px auto 0; }
+  #profile h2 {
+    font-family: Impact, "Arial Black", sans-serif;
+    text-transform: uppercase;
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    text-align: center;
+    color: var(--accent);
+  }
+  .stats { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin: 22px 0 30px; }
+  .stat {
+    background: #241b4d; border: 2px solid #3b2f78; border-radius: 16px;
+    padding: 14px 22px; text-align: center; min-width: 150px;
+  }
+  .stat big { display: block; font-family: Impact, sans-serif; font-size: 2rem; color: #4cd7d0; }
+  .stat small { color: var(--muted); }
+  .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 22px; }
+  .panel { background: #1d1640; border: 2px solid #3b2f78; border-radius: 18px; padding: 20px; }
+  .panel h3 { margin-bottom: 4px; }
+  .panel p.hint { color: var(--muted); font-size: .85rem; margin-bottom: 14px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin: 7px 0; font-size: .88rem; }
+  .bar-label { width: 105px; text-align: right; flex-shrink: 0; }
+  .bar-track { flex: 1; background: #2d2360; border-radius: 999px; height: 18px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 999px; }
+  .bar-value { width: 64px; flex-shrink: 0; color: var(--muted); font-size: .8rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>My Animation Wall</h1>
+  <p class="subtitle">Every animated movie &amp; show I've watched, straight from my Notion</p>
+</header>
+
+<div class="controls">
+  <input type="search" id="search" placeholder="Search a title…">
+  <select id="type">
+    <option value="">Movies &amp; shows</option>
+    <option>Movie</option>
+    <option>TV Series</option>
+  </select>
+  <select id="sort">
+    <option value="rating">Highest rated first</option>
+    <option value="rating-asc">Lowest rated first</option>
+    <option value="az">A → Z</option>
+    <option value="recent">Most recently watched</option>
+  </select>
+  <button class="btn" id="pick">🎲 Pick one for me</button>
+  <button class="btn" onclick="document.getElementById('profile').scrollIntoView({behavior:'smooth'})">📊 My taste profile</button>
+</div>
+
+<div class="chips" id="chips"></div>
+<div class="count" id="count"></div>
+<div class="wall" id="wall"></div>
+
+<section id="profile">
+  <h2>My Taste Profile</h2>
+  <div class="stats" id="stats"></div>
+  <div class="panels">
+    <div class="panel">
+      <h3>Which genres do I rate highest?</h3>
+      <p class="hint">Average rating per tag (only tags with 3+ titles). The number in brackets is how many titles.</p>
+      <div id="chartGenres"></div>
+    </div>
+    <div class="panel">
+      <h3>How generous am I?</h3>
+      <p class="hint">How many titles got each score.</p>
+      <div id="chartScores"></div>
+    </div>
+    <div class="panel">
+      <h3>Movies vs. shows</h3>
+      <p class="hint">Average rating and count for each type.</p>
+      <div id="chartTypes"></div>
+    </div>
+    <div class="panel">
+      <h3>Where do I watch?</h3>
+      <p class="hint">Only titles where a platform is filled in.</p>
+      <div id="chartPlatforms"></div>
+    </div>
+  </div>
+</section>
+
+<div id="pickBox"><div id="pickCard"></div></div>
+
+<div id="detail"><div class="detail-card" id="detailCard"></div></div>
+
+<!-- data.js holds the notes from Notion + IMDb info. If it's missing, the pop-up still works with less info. -->
+<script src="data.js"></script>
+<script>
+/* ---------- 5. THE DATA (copied from your Notion database) ----------
+   Each line is one title: [name, type, rating, date watched, tags] */
+const RAW = [
+["Monster University","Movie",10,"2025-10-06",["children's film","family","coming of age","fantasy","drama","action"]],
+["Seabeast","",10,"",[]],
+["Coco","Movie",10,"",["emotional","coming of age","children's film","family","adventure","fantasy"]],
+["Wish Dragon","Movie",10,"",["coming of age","magic","action","adventure","children's film","family"]],
+["The Magic Schoolbus (신나는 스쿨버스)","TV Series",10,"",["children's film","educational","magic","adventure"]],
+["The Owl House","TV Series",10,"",["children's film","family","educational","coming of age","magic","fantasy","adventure"]],
+["Mating Season","TV Series",10,"",["coming of age","fantasy","drama","romance","comedy"]],
+["Tinkerbell: Secret of the Wings","Movie",10,"",["children's film","family","coming of age","social message","mystery","magic","fantasy","drama","adventure","hero"]],
+["Bee and Puppycat","TV Series",10,"",["children's film","mystery","sci-fi","magic","supernatural","fantasy","drama","adventure"]],
+["Inside Out","Movie",10,"2015-06-20",["coming of age","fantasy","emotional","children's film","family"]],
+["Tangled","Movie",10,"2023-06-16",["action","drama","musical","romance"]],
+["Rick and Morty","TV Series",10,"",["sci-fi","drama","action"]],
+["Klaus","Movie",10,"2018-12-14",["family","children's film","coming of age","emotional"]],
+["Avatar 2","Movie",9.5,"2023-12-26",["fantasy","sci-fi","action","family"]],
+["Your Name","Movie",9.5,"2023-03-26",["emotional","fantasy","romance"]],
+["Haunted Hotel","TV Series",9.5,"2025-09-28",["family","children's film","mystery"]],
+["Elio","Movie",9.5,"2025-09-28",["coming of age","sci-fi","fantasy","adventure"]],
+["Monster Inc","Movie",9.5,"2025-10-06",["children's film","family","coming of age","fantasy","drama","action"]],
+["Zootopia","Movie",9.5,"",["children's film","family","educational","musical","coming of age","social message","fantasy","drama","adventure","romance","comedy","hero"]],
+["Finding Nemo","Movie",9.5,"",["children's film","family","educational","emotional","coming of age","social message","survival","drama","adventure","hero"]],
+["Corpse Bride","Movie",9.5,"",["horror","children's film"]],
+["The Amazing Digital Circus","TV Series",9.5,"",["coming of age","social message","mystery","fantasy","magic","sci-fi","drama","adventure"]],
+["Nightmare Before Christmas","Movie",9,"2024-11-18",["children's film","family","musical"]],
+["Frankenweenie","Movie",9,"",["horror","children's film","sci-fi","drama"]],
+["Smurfs","TV Series",9,"",[]],
+["Luca","",9,"",["children's film","coming of age","adventure"]],
+["Adventure Time","TV Series",9,"",["children's film","coming of age","fantasy","drama","adventure","action","comedy"]],
+["Zootopia 2","Movie",9,"",["children's film","family","coming of age","fantasy","drama","adventure"]],
+["Princess and the Frog","Movie",9,"",["children's film","coming of age","fantasy","drama","adventure","romance"]],
+["Dumbo","Movie",9,"",["children's film","family","social message","magic","fantasy","drama"]],
+["A Bug’s Life","Movie",9,"",["children's film","family","fantasy","drama","action","adventure","hero"]],
+["Disenchantment","TV Series",9,"",["coming of age","magic","fantasy","drama","action","adventure","romance","comedy","hero"]],
+["Tinker Bell","Movie",9,"",["children's film","coming of age","social message","magic","fantasy","drama","adventure","hero"]],
+["Amphibia","TV Series",9,"2026-10-01",["family","children's film","educational","coming of age","magic","fantasy","drama","adventure","comedy","hero"]],
+["Elemental","Movie",9,"",["children's film","family","coming of age","fantasy","romance","hero"]],
+["Bojack Horseman","TV Series",9,"",["drama","coming of age","social message"]],
+["Spirited Away","Movie",9,"",["children's film","drama","sci-fi","mystery"]],
+["Kpop Demon Hunters","Movie",8,"2025-07-26",["mythology","musical","children's film","coming of age"]],
+["캐릭캐릭 체인지","TV Series",8,"",["children's film","coming of age","drama"]],
+["Ratatouille","",8,"",["children's film","family","coming of age","drama"]],
+["Dora the Explorer","TV Series",8,"",["children's film","adventure","educational"]],
+["Inside Out 2","Movie",8,"2024-06-15",["coming of age","fantasy","emotional","children's film","family"]],
+["Big Mouth","TV Series",8,"",["educational","coming of age"]],
+["Spirited Away 센과 치히로의 행방불명","",7,"",["coming of age","action","adventure","fantasy"]],
+["Regular Show","TV Series",7,"2025-11-03",["drama","comedy"]],
+["Hoppers","Movie",7,"",["children's film","family","social message","fantasy","sci-fi","action","adventure","hero"]],
+["Gravity Falls","TV Series",7,"",["children's film","family","coming of age","mystery","magic","fantasy","drama","adventure","hero","comedy"]],
+["Futurama","TV Series",7,"",["sci-fi","drama"]],
+["Tinker Bell and the Legend of the NeverBeast","Movie",6.5,"2012-08-31",["children's film","coming of age","social message","magic","fantasy","drama","adventure","hero"]],
+["Tinker Bell and the Lost Treasure","Movie",6.5,"2012-08-31",["children's film","coming of age","social message","magic","fantasy","drama","adventure","hero"]],
+["Ruby Gillman Teenage Kraken","Movie",6,"2025-11-02",["children's film","family","coming of age","fantasy","hero"]],
+["Inside Job","TV Series",6,"",["sci-fi","drama","action"]],
+["Human Resources","TV Series",5,"",["educational","drama"]],
+["The Hunchback of Notre Dam","Movie",5,"2026-07-23",["social message","drama","action","hero"]],
+["Howl’s Moving Castle (하울의 움직이는 성)","Movie",4,"",[]],
+["Frozen 2","Movie",4,"2019-11-15",["children's film","family","coming of age","magic"]],
+["Encanto","Movie",3,"",["children's film","family","magic"]],
+["A Silent Voice","Movie",1,"",["romance","coming of age"]],
+["Wish","Movie",0,"",["coming of age","social message","emotional","children's film","hero"]]
+].map(([title,type,rating,date,tags]) => ({title,type,rating,date,tags}));
+
+// Only 8 titles have a platform filled in on Notion
+const PLATFORMS = {
+  "The Owl House":"Disney+", "Amphibia":"Disney+", "The Hunchback of Notre Dam":"Disney+", "Wish":"Disney+",
+  "Adventure Time":"Netflix", "Kpop Demon Hunters":"Netflix", "Regular Show":"Netflix", "Ruby Gillman Teenage Kraken":"Netflix"
+};
+
+const POSTERS = {
+  "Monster University": "posters/monster-university.jpg",
+  "Seabeast": "posters/seabeast.jpg",
+  "Coco": "posters/coco.jpg",
+  "Wish Dragon": "posters/wish-dragon.jpg",
+  "The Magic Schoolbus (신나는 스쿨버스)": "posters/the-magic-schoolbus.jpg",
+  "The Owl House": "posters/the-owl-house.jpg",
+  "Mating Season": "posters/mating-season.jpg",
+  "Tinkerbell: Secret of the Wings": "posters/tinkerbell-secret-of-the-wings.jpg",
+  "Bee and Puppycat": "posters/bee-and-puppycat.jpg",
+  "Inside Out": "posters/inside-out.jpg",
+  "Tangled": "posters/tangled.jpg",
+  "Rick and Morty": "posters/rick-and-morty.jpg",
+  "Klaus": "posters/klaus.jpg",
+  "Avatar 2": "posters/avatar-2.jpg",
+  "Your Name": "posters/your-name.jpg",
+  "Haunted Hotel": "posters/haunted-hotel.jpg",
+  "Elio": "posters/elio.jpg",
+  "Monster Inc": "posters/monster-inc.jpg",
+  "Zootopia": "posters/zootopia.jpg",
+  "Finding Nemo": "posters/finding-nemo.jpg",
+  "Corpse Bride": "posters/corpse-bride.jpg",
+  "The Amazing Digital Circus": "posters/the-amazing-digital-circus.jpg",
+  "Nightmare Before Christmas": "posters/nightmare-before-christmas.jpg",
+  "Frankenweenie": "posters/frankenweenie.jpg",
+  "Smurfs": "posters/smurfs.jpg",
+  "Luca": "posters/luca.jpg",
+  "Adventure Time": "posters/adventure-time.jpg",
+  "Zootopia 2": "posters/zootopia-2.jpg",
+  "Princess and the Frog": "posters/princess-and-the-frog.jpg",
+  "Dumbo": "posters/dumbo.jpg",
+  "A Bug’s Life": "posters/a-bug-s-life.jpg",
+  "Disenchantment": "posters/disenchantment.jpg",
+  "Tinker Bell": "posters/tinker-bell.jpg",
+  "Amphibia": "posters/amphibia.jpg",
+  "Elemental": "posters/elemental.jpg",
+  "Bojack Horseman": "posters/bojack-horseman.jpg",
+  "Spirited Away": "posters/spirited-away.jpg",
+  "Kpop Demon Hunters": "posters/kpop-demon-hunters.jpg",
+  "캐릭캐릭 체인지": "posters/shugo-chara.jpg",
+  "Ratatouille": "posters/ratatouille.jpg",
+  "Dora the Explorer": "posters/dora-the-explorer.jpg",
+  "Inside Out 2": "posters/inside-out-2.jpg",
+  "Big Mouth": "posters/big-mouth.jpg",
+  "Spirited Away 센과 치히로의 행방불명": "posters/spirited-away.jpg",
+  "Regular Show": "posters/regular-show.jpg",
+  "Hoppers": "posters/hoppers.jpg",
+  "Gravity Falls": "posters/gravity-falls.jpg",
+  "Futurama": "posters/futurama.jpg",
+  "Tinker Bell and the Legend of the NeverBeast": "posters/tinker-bell-and-the-legend-of-the-neverbeast.jpg",
+  "Tinker Bell and the Lost Treasure": "posters/tinker-bell-and-the-lost-treasure.jpg",
+  "Ruby Gillman Teenage Kraken": "posters/ruby-gillman-teenage-kraken.jpg",
+  "Inside Job": "posters/inside-job.jpg",
+  "Human Resources": "posters/human-resources.jpg",
+  "The Hunchback of Notre Dam": "posters/the-hunchback-of-notre-dam.jpg",
+  "Howl’s Moving Castle (하울의 움직이는 성)": "posters/howls-moving-castle.jpg",
+  "Frozen 2": "posters/frozen-2.jpg",
+  "Encanto": "posters/encanto.jpg",
+  "A Silent Voice": "posters/a-silent-voice.jpg",
+  "Wish": "posters/wish.jpg"
+};
+
+RAW.forEach(m => {
+  m.platform = PLATFORMS[m.title] || "";
+  m.poster = POSTERS[m.title] || "";
+});
+
+/* ---------- 6. TURN EACH TITLE INTO A COLORFUL POSTER ----------
+   We turn the title's letters into a number, and use that number to pick colors.
+   Same title = same colors every time. */
+function hash(str) {
+  let h = 0;
+  for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h;
+}
+function posterStyle(m) {
+  const h = hash(m.title);
+  const hue1 = h % 360;
+  const hue2 = (hue1 + 40 + (h >> 8) % 90) % 360;
+  const gx = (h % 60) - 20, gy = ((h >> 4) % 50) - 10;
+  return `background: linear-gradient(155deg, hsl(${hue1} 85% 55%), hsl(${hue2} 80% 38%));
+          --glow: hsl(${(hue1 + 180) % 360} 90% 70%); --gx:${gx}%; --gy:${gy}%;`;
+}
+function posterHTML(m) {
+  const tags = m.tags.filter(t => t !== "children's film" && t !== "family");
+  return `
+    <div class="poster" data-title="${m.title.replace(/"/g, "&quot;")}" style="${posterStyle(m)}">
+      ${m.poster ? `<img class="poster-bg" src="${m.poster}" alt="${m.title}" loading="lazy" onerror="this.remove()">` : ""}
+      <div class="poster-overlay"></div>
+      <div class="rating">⭐ ${m.rating}</div>
+      <div class="poster-info">
+        <div class="title">${m.title}</div>
+        <div class="meta">${m.type || "—"}${m.date ? " · " + m.date.slice(0,4) : ""}</div>
+      </div>
+      <div class="tags-hover"><b>${m.title}</b>${tags.length ? tags.map(t => `<span>${t}</span>`).join("") : "<span>no tags yet</span>"}</div>
+    </div>`;
+}
+
+/* ---------- 7. FILTERING & SORTING ---------- */
+const $ = id => document.getElementById(id);
+const selectedTags = new Set();
+
+// Build the genre chips from the tags that actually exist (skip the very generic ones)
+const SKIP = new Set(["children's film", "family", "drama"]);
+const tagCounts = {};
+RAW.forEach(m => m.tags.forEach(t => { if (!SKIP.has(t)) tagCounts[t] = (tagCounts[t] || 0) + 1; }));
+const topTags = Object.entries(tagCounts).sort((a,b) => b[1]-a[1]).slice(0, 14).map(e => e[0]);
+$("chips").innerHTML = topTags.map(t => `<button class="chip" data-tag="${t}">${t}</button>`).join("");
+$("chips").addEventListener("click", e => {
+  const tag = e.target.dataset.tag;
+  if (!tag) return;
+  selectedTags.has(tag) ? selectedTags.delete(tag) : selectedTags.add(tag);
+  e.target.classList.toggle("on");
+  render();
+});
+
+function visibleMovies() {
+  const q = $("search").value.trim().toLowerCase();
+  const type = $("type").value;
+  let list = RAW.filter(m =>
+    (!q || m.title.toLowerCase().includes(q)) &&
+    (!type || m.type === type) &&
+    [...selectedTags].every(t => m.tags.includes(t))
+  );
+  const sort = $("sort").value;
+  if (sort === "rating")     list.sort((a,b) => b.rating - a.rating);
+  if (sort === "rating-asc") list.sort((a,b) => a.rating - b.rating);
+  if (sort === "az")         list.sort((a,b) => a.title.localeCompare(b.title));
+  if (sort === "recent")     list.sort((a,b) => (b.date || "").localeCompare(a.date || ""));
+  return list;
+}
+
+function render() {
+  const list = visibleMovies();
+  $("wall").innerHTML = list.map(posterHTML).join("");
+  $("count").textContent = `Showing ${list.length} of ${RAW.length}`;
+}
+["search", "type", "sort"].forEach(id => $(id).addEventListener("input", render));
+
+/* ---------- 8. "PICK ONE FOR ME" ---------- */
+$("pick").addEventListener("click", () => {
+  const list = visibleMovies();
+  if (!list.length) return;
+  const m = list[Math.floor(Math.random() * list.length)];
+  $("pickCard").innerHTML = posterHTML(m) + `<p>Tonight's pick! (click anywhere to close)</p>`;
+  $("pickBox").classList.add("show");
+});
+$("pickBox").addEventListener("click", () => $("pickBox").classList.remove("show"));
+
+/* ---------- 8b. CLICK A POSTER → DETAIL POP-UP ----------
+   DETAILS comes from data.js: { "Coco": { notes, imdbUrl, imdbRating, notionUrl }, ... } */
+const DETAILS = window.DETAILS || {};
+
+// Notes are text you typed, so we make them "safe" before putting them on the page
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ---------- NOTION → HTML ----------
+   Your notes are stored in Notion's own markdown: "# " headings, "- " bullets (indented with tabs),
+   `code`, **bold**, <span underline="true">, <columns>, images, and so on.
+   Part 1 (inline) handles formatting inside a line. Part 2 (blocks) handles the lines themselves. */
+const NOTION_COLORS = { gray: "#b0aab8", brown: "#d2a679", orange: "#ffa94d", yellow: "#ffd23f", green: "#69db7c",
+                        blue: "#74c0fc", purple: "#b197fc", pink: "#ff8fb8", red: "#ff6b6b" };
+function colorCss(name) {
+  const base = (name || "").replace("_bg", ""), c = NOTION_COLORS[base];
+  if (!c) return "";
+  return name.endsWith("_bg") ? `background:${c}40;border-radius:4px;padding:0 3px;` : `color:${c};`;
+}
+
+// Part 1: formatting inside one line
+function inline(text) {
+  const keep = [];                                   // pieces we hide from the other rules while we work
+  const hold = html => { keep.push(html); return `\u0000${keep.length - 1}\u0000`; };
+  let s = text.replace(/\{(?:color|toggle)="[^"]*"(?: (?:color|toggle)="[^"]*")*\}\s*$/, "");   // trailing {color="red"}
+  s = s.replace(/\\([\\*~`$\[\]<>{}|^_])/g, (_, ch) => hold(esc(ch)));                              // \* → literal *
+  s = s.replace(/`([^`]+)`/g, (_, c) => hold(`<code>${esc(c).replace(/&lt;br&gt;/g, "<br>")}</code>`));
+  s = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");                         // make the rest safe
+  let prev;
+  do {                                                                                             // <span underline/color>
+    prev = s;
+    s = s.replace(/&lt;span ([^&]*?)&gt;((?:(?!&lt;span)[\s\S])*?)&lt;\/span&gt;/g, (_, attrs, t) => {
+      const c = /color="(\w+)"/.exec(attrs), u = /underline="true"/.test(attrs);
+      return `<span style="${c ? colorCss(c[1]) : ""}${u ? "text-decoration:underline;" : ""}">${t}</span>`;
+    });
+  } while (s !== prev);
+  s = s.replace(/&lt;br\s*\/?&gt;/g, "<br>");
+  s = s.replace(/&lt;mention-(?:page|user|database|data-source|agent) [^&]*?&gt;([\s\S]*?)&lt;\/mention-[a-z-]+&gt;/g, '<span class="mention">$1</span>');
+  s = s.replace(/&lt;mention-date start="([^"]*)"[^&]*?\/&gt;/g, '<span class="mention">$1</span>');
+  s = s.replace(/&lt;mention-[^&]*?\/&gt;/g, "");
+  s = s.replace(/\*\*([^*]+?)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/(^|[^*])\*([^*\n]+?)\*/g, "$1<em>$2</em>");
+  s = s.replace(/~~(.+?)~~/g, "<s>$1</s>");
+  s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => keep[i]);
+}
+
+// Part 2: the lines themselves
+function renderNotion(src) {
+  const items = src.replace(/\r/g, "").split("\n")
+    .map(l => { const m = /^(\t*)(.*)$/.exec(l); return { d: m[1].length, t: m[2] }; })
+    .filter(x => x.t.trim() !== "");
+  return blocks(items);
+}
+
+function blocks(items) {
+  let html = "", i = 0;
+  const kidsOf = (idx, d) => { const k = []; let j = idx + 1; while (j < items.length && items[j].d > d) k.push(items[j++]); return [k, j]; };
+  const endOf = (idx, d, tag) => { let j = idx + 1; while (j < items.length && !(items[j].d === d && items[j].t.startsWith(tag))) j++; return j; };
+  const attr = (t, name) => { const m = new RegExp(name + '="([^"]*)"').exec(t); return m ? m[1] : ""; };
+  const withKids = kids => kids.length ? `<div class="children">${blocks(kids)}</div>` : "";
+
+  while (i < items.length) {
+    const { d, t } = items[i];
+    let m;
+
+    if (t.startsWith("<empty-block")) { html += '<div class="empty-line"></div>'; i++; continue; }
+    if (/^---+$/.test(t.trim())) { html += "<hr>"; i++; continue; }
+
+    if (t.startsWith("```")) {                                        // code block
+      const end = endOf(i, d, "```");
+      html += `<pre><code>${esc(items.slice(i + 1, end).map(x => x.t).join("\n"))}</code></pre>`;
+      i = end + 1; continue;
+    }
+    if (t.startsWith("<columns")) {                                   // side-by-side columns
+      const end = endOf(i, d, "</columns>"); let cols = "", j = i + 1;
+      while (j < end) {
+        if (items[j].t.startsWith("<column")) {
+          const e = endOf(j, items[j].d, "</column>");
+          const ratio = parseFloat(attr(items[j].t, "ratio")) || 1;
+          cols += `<div class="col" style="flex:${ratio} 1 ${Math.round(ratio * 4)}px">${blocks(items.slice(j + 1, e))}</div>`;
+          j = e + 1;
+        } else j++;
+      }
+      html += `<div class="cols">${cols}</div>`; i = end + 1; continue;
+    }
+    if (t.startsWith("<callout")) {
+      const end = endOf(i, d, "</callout>"), icon = attr(t, "icon"), c = attr(t, "color");
+      html += `<div class="callout" style="${c.endsWith("_bg") ? colorCss(c) : ""}"><div class="callout-icon">${esc(icon.length < 8 ? icon : "💡")}</div><div class="callout-body">${blocks(items.slice(i + 1, end))}</div></div>`;
+      i = end + 1; continue;
+    }
+    if (t.startsWith("<details")) {
+      const end = endOf(i, d, "</details>"), rest = items.slice(i + 1, end);
+      const sm = rest.length && /^<summary>([\s\S]*)<\/summary>$/.exec(rest[0].t.trim());
+      html += `<details><summary>${inline(sm ? sm[1] : "")}</summary>${blocks(sm ? rest.slice(1) : rest)}</details>`;
+      i = end + 1; continue;
+    }
+    if (t.startsWith("<table")) {
+      const end = endOf(i, d, "</table>"), body = items.slice(i + 1, end).map(x => x.t).join("\n");
+      const head = attr(t, "header-row") === "true";
+      const rows = (body.match(/<tr[^>]*>[\s\S]*?<\/tr>/g) || []).map((r, ri) =>
+        "<tr>" + (r.match(/<td[^>]*>[\s\S]*?<\/td>/g) || []).map(c => {
+          const tag = head && ri === 0 ? "th" : "td";
+          return `<${tag}>${inline(c.replace(/^<td[^>]*>|<\/td>$/g, ""))}</${tag}>`;
+        }).join("") + "</tr>").join("");
+      html += `<table>${rows}</table>`; i = end + 1; continue;
+    }
+
+    if ((m = /^!\[(.*?)\]\((.*?)\)/.exec(t))) {                       // image
+      const url = m[2].replace(/^\{\{|\}\}$/g, "");
+      html += /^https?:/.test(url)
+        ? `<figure><img src="${esc(url)}" alt="${esc(m[1])}" loading="lazy" onerror="this.closest('figure').remove()">${m[1] ? `<figcaption>${inline(m[1])}</figcaption>` : ""}</figure>`
+        : "";
+      i++; continue;
+    }
+    if (/^<(file|video|audio|pdf|embed|bookmark)\b/.test(t) || /^\[bookmark\]/.test(t)) {   // attachments / bookmarks → plain link
+      const u = attr(t, "src") || attr(t, "url") || ((/\((https?:[^)]+)\)/.exec(t) || [])[1] || "");
+      if (/^https?:/.test(u)) html += `<p><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60))} ↗</a></p>`;
+      i++; continue;
+    }
+    if (/^<(unknown|table_of_contents|synced_block|page|database|folder|custom-block)\b/.test(t)) { i++; continue; }
+
+    if ((m = /^(#{1,6}) (.*)$/.exec(t))) {                            // headings (and toggle headings)
+      const lvl = Math.min(m[1].length, 4), [kids, next] = kidsOf(i, d);
+      const toggle = /\{[^}]*toggle="true"[^}]*\}\s*$/.test(m[2]);
+      const c = (/color="(\w+)"/.exec(m[2].match(/\{[^}]*\}\s*$/)?.[0] || "") || [])[1];
+      const h = `<h${lvl} style="${colorCss(c)}">${inline(m[2])}</h${lvl}>`;
+      html += toggle ? `<details><summary>${h}</summary>${blocks(kids)}</details>` : h + (kids.length ? blocks(kids) : "");
+      i = next; continue;
+    }
+
+    const kind = /^- \[[ xX]\] /.test(t) ? "todo" : /^- /.test(t) ? "ul" : /^\d+\. /.test(t) ? "ol" : "";
+    if (kind) {                                                       // a run of list items at the same depth
+      let lis = "";
+      while (i < items.length && items[i].d === d) {
+        const cur = items[i].t;
+        const k2 = /^- \[[ xX]\] /.test(cur) ? "todo" : /^- /.test(cur) ? "ul" : /^\d+\. /.test(cur) ? "ol" : "";
+        if (k2 !== kind) break;
+        const [kids, next] = kidsOf(i, d);
+        if (kind === "todo") {
+          const done = /^- \[[xX]\]/.test(cur);
+          lis += `<li><input type="checkbox" disabled ${done ? "checked" : ""}>${inline(cur.replace(/^- \[[ xX]\] /, ""))}${withKids(kids)}</li>`;
+        } else {
+          lis += `<li>${inline(cur.replace(/^(- |\d+\. )/, ""))}${withKids(kids)}</li>`;
+        }
+        i = next;
+      }
+      html += kind === "ol" ? `<ol>${lis}</ol>` : `<ul class="${kind === "todo" ? "todo" : ""}">${lis}</ul>`;
+      continue;
+    }
+
+    const [kids, next] = kidsOf(i, d);
+    html += t.startsWith("> ")
+      ? `<blockquote>${inline(t.slice(2))}${withKids(kids)}</blockquote>`
+      : `<p>${inline(t)}</p>${withKids(kids)}`;
+    i = next;
+  }
+  return html;
+}
+
+function openDetail(title) {
+  const m = RAW.find(x => x.title === title);
+  if (!m) return;
+  const d = DETAILS[title] || {};
+  const imdbUrl = d.imdbUrl || `https://www.imdb.com/find/?q=${encodeURIComponent(title)}`;
+  const tags = m.tags.filter(t => t !== "children's film" && t !== "family");
+  $("detailCard").innerHTML = `
+    <button class="detail-close" aria-label="Close" id="detailClose">✕</button>
+    <div class="detail-poster" style="${posterStyle(m)}">
+      ${m.poster ? `<img src="${m.poster}" alt="${esc(title)}" onerror="this.remove()">` : ""}
+    </div>
+    <div class="detail-body">
+      <h2>${esc(title)}</h2>
+      <div class="detail-meta">${m.type || "—"}${m.date ? " · watched " + m.date : ""}${m.platform ? " · " + m.platform : ""}</div>
+      <div class="score-row">
+        <div class="score-box"><big>${m.rating}</big><small>my rating</small></div>
+        <div class="score-box"><big>${d.imdbRating != null ? d.imdbRating : "—"}</big><small>${d.imdbRating != null ? "IMDb rating" + (d.imdbVotes ? " · " + Intl.NumberFormat("en", { notation: "compact" }).format(d.imdbVotes) + " votes" : "") : "IMDb rating (not found)"}</small></div>
+      </div>
+      <div class="detail-links">
+        <a href="${esc(imdbUrl)}" target="_blank" rel="noopener">${d.imdbUrl ? "View on IMDb ↗" : "Search on IMDb ↗"}</a>
+        ${d.notionUrl ? `<a class="alt" href="${esc(d.notionUrl)}" target="_blank" rel="noopener">Open in Notion ↗</a>` : ""}
+      </div>
+      ${tags.length ? `<div class="detail-tags">${tags.map(t => `<span>${esc(t)}</span>`).join("")}</div>` : ""}
+      <h3>My notes</h3>
+      ${d.notes ? `<div class="notes nb">${renderNotion(d.notes)}</div>` : `<div class="notes empty">No notes written for this one yet.</div>`}
+    </div>`;
+  $("detail").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+function closeDetail() {
+  $("detail").classList.remove("show");
+  document.body.style.overflow = "";
+}
+$("wall").addEventListener("click", e => {
+  const card = e.target.closest(".poster");
+  if (card) openDetail(card.dataset.title);
+});
+$("detail").addEventListener("click", e => {
+  if (e.target.id === "detail" || e.target.id === "detailClose") closeDetail();   // click backdrop or ✕
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDetail(); });
+
+/* ---------- 9. TASTE PROFILE CHARTS ----------
+   A "bar chart" here is just a row of colored boxes whose WIDTH is set by a number.
+   The recipe is always the same:
+     (a) group the titles   (b) do some math on each group   (c) draw one bar per group */
+const average = list => list.reduce((sum, m) => sum + m.rating, 0) / list.length;
+
+// One bar = label + colored bar + text. "max" is the number that means a full-width bar.
+function barRows(rows, max) {
+  return rows.map(r => `
+    <div class="bar-row">
+      <div class="bar-label">${r.label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(r.value / max) * 100}%; background:${r.color}"></div></div>
+      <div class="bar-value">${r.text}</div>
+    </div>`).join("");
+}
+const colorFor = label => `hsl(${hash(label) % 360} 85% 62%)`;   // same trick as the posters
+
+function renderCharts() {
+  // Top numbers
+  const best = RAW.reduce((a, b) => (b.rating > a.rating ? b : a));
+  const perfect = RAW.filter(m => m.rating === 10).length;
+  $("stats").innerHTML = [
+    [RAW.length, "titles watched"],
+    [average(RAW).toFixed(1), "average rating"],
+    [perfect, "perfect 10s"],
+  ].map(([big, small]) => `<div class="stat"><big>${big}</big><small>${small}</small></div>`).join("");
+
+  // Chart 1: average rating per tag  (a) group by tag  (b) average  (c) sort high → low
+  const byTag = {};
+  RAW.forEach(m => m.tags.forEach(t => (byTag[t] = byTag[t] || []).push(m)));
+  const genreRows = Object.entries(byTag)
+    .filter(([tag, list]) => list.length >= 3)
+    .map(([tag, list]) => ({ tag, avg: average(list), n: list.length }))
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 12)
+    .map(g => ({ label: g.tag, value: g.avg, text: `${g.avg.toFixed(1)} (${g.n})`, color: colorFor(g.tag) }));
+  $("chartGenres").innerHTML = barRows(genreRows, 10);
+
+  // Chart 2: how many titles got each score (rounded down to a whole number)
+  const buckets = {};
+  RAW.forEach(m => { const s = Math.floor(m.rating); buckets[s] = (buckets[s] || 0) + 1; });
+  const scoreRows = Object.keys(buckets).map(Number).sort((a, b) => b - a)
+    .map(s => ({ label: s === 10 ? "10" : `${s}–${s + 0.5}`, value: buckets[s], text: `${buckets[s]} ${buckets[s] === 1 ? "title" : "titles"}`, color: colorFor("score" + s) }));
+  $("chartScores").innerHTML = barRows(scoreRows, Math.max(...Object.values(buckets)));
+
+  // Chart 3: movies vs. shows (titles with no type filled in are left out)
+  const typeRows = ["Movie", "TV Series"].map(t => {
+    const list = RAW.filter(m => m.type === t);
+    return { label: t, value: average(list), text: `${average(list).toFixed(1)} (${list.length})`, color: colorFor(t) };
+  });
+  $("chartTypes").innerHTML = barRows(typeRows, 10);
+
+  // Chart 4: platforms (only a few titles have this filled in, so this one is small)
+  const plat = {};
+  RAW.forEach(m => { if (m.platform) plat[m.platform] = (plat[m.platform] || 0) + 1; });
+  const platRows = Object.entries(plat).sort((a, b) => b[1] - a[1])
+    .map(([p, n]) => ({ label: p, value: n, text: `${n} titles`, color: colorFor(p) }));
+  $("chartPlatforms").innerHTML = barRows(platRows, Math.max(...Object.values(plat)));
+}
+
+render();
+renderCharts();
+</script>
+</body>
+</html>
